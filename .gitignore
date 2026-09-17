@@ -1,0 +1,11 @@
+# Local environment files - may contain credentials
+.env
+!.env.example
+
+# Log checkpoint volumes created by recipe 03
+recipes/*/data/
+
+# Publishing notes (not part of the repo)
+PUBLISHING.md
+
+.DS_Store

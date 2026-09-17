@@ -1,0 +1,23 @@
+# Recipe 01 overlay - temporarily print telemetry to the collector's stdout.
+#
+#   otelcol-contrib --config=config.yaml --config=debug.overlay.yaml
+#
+# The collector deep-merges maps from later --config files; LISTS ARE REPLACED,
+# which is why the exporter lists are repeated in full below.
+# Remove this overlay again after debugging: `detailed` verbosity can log PII and
+# is expensive at volume. sampling_* keeps the output readable.
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  pipelines:
+    traces:
+      exporters: [otlp_grpc, debug]
+    metrics:
+      exporters: [otlp_grpc, debug]
+    logs:
+      exporters: [otlp_grpc, debug]

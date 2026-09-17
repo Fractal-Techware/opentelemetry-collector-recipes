@@ -1,0 +1,50 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OTELCOL_IMAGE: otel/opentelemetry-collector-contrib:0.161.0
+
+jobs:
+  validate:
+    name: otelcol-contrib validate (0.161.0)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pull pinned collector image
+        run: docker pull -q "$OTELCOL_IMAGE"
+
+      - name: Validate collector configs
+        run: ./scripts/validate.sh
+
+      - name: Validate Docker Compose files
+        run: |
+          set -euo pipefail
+          for f in $(find recipes snippets -name compose.yaml | sort); do
+            dir="$(dirname "$f")"
+            echo "==> docker compose config $dir"
+            docker compose --project-directory "$dir" --env-file "$dir/.env.example" -f "$f" config -q
+          done
+
+      - name: Configs are pinned to 0.161.0
+        run: |
+          set -euo pipefail
+          if grep -rn "opentelemetry-collector-contrib:" recipes snippets | grep -v ":0.161.0"; then
+            echo "Found an unpinned or differently pinned collector image" >&2
+            exit 1
+          fi

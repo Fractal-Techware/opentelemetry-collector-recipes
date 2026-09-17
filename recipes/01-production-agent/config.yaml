@@ -1,0 +1,97 @@
+# OpenTelemetry Collector Recipes (free sample, MIT) - Fractal Techware
+# Recipe 01 - Minimal production agent
+# Tested with: otel/opentelemetry-collector-contrib:0.161.0
+#
+# OTLP in (gRPC + HTTP) -> memory_limiter -> resource_detection -> batch -> OTLP/gRPC out.
+# The debug exporter is OFF. Merge debug.overlay.yaml to turn it on temporarily.
+#
+# Required env:
+#   OTLP_EXPORT_ENDPOINT      host:port of your gateway or backend (e.g. gateway.observability:4317)
+# Optional env (defaults shown):
+#   OTLP_EXPORT_INSECURE=false   set true ONLY for plaintext inside a trusted network
+#   OTEL_LISTEN_ADDR=localhost   receiver bind address (0.0.0.0 in containers, pod IP in k8s)
+#   OTEL_HEALTH_ADDR=localhost   health_check bind address (pod IP in k8s so probes work)
+#   OTEL_TELEMETRY_ADDR=localhost  collector's own /metrics bind address
+#   OTEL_LOG_LEVEL=info
+
+extensions:
+  health_check:
+    # Liveness/readiness probe target. Never publish this port outside the host/pod.
+    endpoint: ${env:OTEL_HEALTH_ADDR:-localhost}:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${env:OTEL_LISTEN_ADDR:-localhost}:4317
+        max_recv_msg_size_mib: 16
+      http:
+        endpoint: ${env:OTEL_LISTEN_ADDR:-localhost}:4318
+
+processors:
+  # Always first: refuses data (receivers return a retryable error) before the process OOMs.
+  # Percentages are computed from the cgroup memory limit - always set a container memory limit
+  # and GOMEMLIMIT (~80% of the limit).
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # Adds host.name / os.type and anything in OTEL_RESOURCE_ATTRIBUTES.
+  # override: false keeps attributes the SDK already set (service.name, host.name, ...).
+  resource_detection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+    system:
+      hostname_sources: [os]
+
+  # Always last before exporters. Bigger batches = fewer requests and better compression.
+  batch:
+    send_batch_size: 2048
+    send_batch_max_size: 4096
+    timeout: 5s
+
+exporters:
+  otlp_grpc:
+    endpoint: ${env:OTLP_EXPORT_ENDPOINT}
+    tls:
+      insecure: ${env:OTLP_EXPORT_INSECURE:-false}
+    compression: gzip
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 1000
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: ${env:OTEL_LOG_LEVEL:-info}
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: ${env:OTEL_TELEMETRY_ADDR:-localhost}
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, batch]
+      exporters: [otlp_grpc]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, batch]
+      exporters: [otlp_grpc]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource_detection, batch]
+      exporters: [otlp_grpc]

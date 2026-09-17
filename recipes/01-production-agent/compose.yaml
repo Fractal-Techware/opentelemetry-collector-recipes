@@ -1,0 +1,36 @@
+# OpenTelemetry Collector Recipes (free sample, MIT) - Fractal Techware
+# Recipe 01 - Docker Compose
+#   cp .env.example .env   # fill in the values
+#   docker compose up -d && docker compose logs -f
+# Hardened: non-root uid 10001, read-only root filesystem, no capabilities, ports on 127.0.0.1 only.
+name: ftwotel-recipe-01
+
+x-otelcol: &otelcol
+  image: otel/opentelemetry-collector-contrib:0.161.0
+  restart: unless-stopped
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  mem_limit: 512m
+
+services:
+  otelcol:
+    <<: *otelcol
+    command: ["--config=/etc/otelcol/config.yaml"]
+    # Debugging: add "--config=/etc/otelcol/debug.overlay.yaml" to the command above.
+    environment:
+      GOMEMLIMIT: 400MiB
+      # 0.0.0.0 = all interfaces INSIDE the container network namespace. Nothing is reachable
+      # from outside except the ports published below, which bind to 127.0.0.1 only.
+      OTEL_LISTEN_ADDR: 0.0.0.0
+      OTEL_HEALTH_ADDR: 0.0.0.0
+      OTLP_EXPORT_ENDPOINT: ${OTLP_EXPORT_ENDPOINT:?set OTLP_EXPORT_ENDPOINT in .env}
+      OTLP_EXPORT_INSECURE: ${OTLP_EXPORT_INSECURE:-false}
+    volumes:
+      - ./config.yaml:/etc/otelcol/config.yaml:ro
+      - ./debug.overlay.yaml:/etc/otelcol/debug.overlay.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"

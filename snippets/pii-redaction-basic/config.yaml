@@ -1,0 +1,85 @@
+# OpenTelemetry Collector Recipes (free sample, MIT) - Fractal Techware
+# Snippet - BASIC PII redaction (transform processor / OTTL)
+# Tested with: otel/opentelemetry-collector-contrib:0.161.0
+#
+# BASIC VERSION. A good first line of defence, not a compliance control. It masks:
+#   - email addresses in log bodies, span names and string attribute values
+#   - payment-card-like digit runs (13-16 digits, optional space/dash separators) in the same places
+#   - credential headers/attributes: authorization, cookie, set-cookie, x-api-key (deleted outright)
+#
+# Known gaps (all handled by the hardened recipe 08 in the full pack):
+#   - card numbers sent as INTEGER attributes are not touched (only strings are matched)
+#   - no IPv4 masking, no secrets in URL query strings, no Bearer/Basic tokens inside free text
+#   - span event attributes and resource attributes are not scanned
+#   - no key-name based catch-all (password / secret / token attributes)
+#   - order IDs or other long numeric strings that look like cards WILL be masked (false positives)
+#
+# Required env:
+#   OTLP_EXPORT_ENDPOINT      host:port of your gateway or backend
+# Optional env (defaults shown):
+#   OTLP_EXPORT_INSECURE=false, OTEL_LISTEN_ADDR=localhost, OTEL_HEALTH_ADDR=localhost
+#
+# Regex note: never use a bare `$` in this file - the collector reads `$` as an environment
+# variable reference. Write `$$` if you need a literal one.
+
+extensions:
+  health_check:
+    endpoint: ${env:OTEL_HEALTH_ADDR:-localhost}:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${env:OTEL_LISTEN_ADDR:-localhost}:4317
+      http:
+        endpoint: ${env:OTEL_LISTEN_ADDR:-localhost}:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # Redaction runs BEFORE batch and before any exporter, so nothing unredacted leaves the process.
+  transform/pii_basic:
+    error_mode: ignore
+    trace_statements:
+      # Credential-bearing attributes: delete, don't mask.
+      - delete_matching_keys(span.attributes, "(?i)^(http\\.request\\.header\\.)?(authorization|cookie|set-cookie|x-api-key)$$")
+      - replace_all_patterns(span.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[REDACTED_EMAIL]")
+      - replace_all_patterns(span.attributes, "value", "\\b(?:\\d[ -]?){12,15}\\d\\b", "[REDACTED_CARD]")
+      - replace_pattern(span.name, "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[REDACTED_EMAIL]")
+    log_statements:
+      - delete_matching_keys(log.attributes, "(?i)^(http\\.request\\.header\\.)?(authorization|cookie|set-cookie|x-api-key)$$")
+      - replace_all_patterns(log.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[REDACTED_EMAIL]")
+      - replace_all_patterns(log.attributes, "value", "\\b(?:\\d[ -]?){12,15}\\d\\b", "[REDACTED_CARD]")
+      # Only string bodies are rewritten; structured (map) bodies are left as-is in this basic version.
+      - replace_pattern(log.body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[REDACTED_EMAIL]") where IsString(log.body)
+      - replace_pattern(log.body, "\\b(?:\\d[ -]?){12,15}\\d\\b", "[REDACTED_CARD]") where IsString(log.body)
+
+  batch:
+    send_batch_size: 2048
+    timeout: 5s
+
+exporters:
+  otlp_grpc:
+    endpoint: ${env:OTLP_EXPORT_ENDPOINT}
+    tls:
+      insecure: ${env:OTLP_EXPORT_INSECURE:-false}
+    compression: gzip
+    retry_on_failure:
+      enabled: true
+    sending_queue:
+      enabled: true
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/pii_basic, batch]
+      exporters: [otlp_grpc]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/pii_basic, batch]
+      exporters: [otlp_grpc]

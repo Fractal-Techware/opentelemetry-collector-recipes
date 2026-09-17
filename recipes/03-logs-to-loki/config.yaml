@@ -1,0 +1,114 @@
+# OpenTelemetry Collector Recipes (free sample, MIT) - Fractal Techware
+# Recipe 03 - File logs -> Loki (native OTLP endpoint)
+# Tested with: otel/opentelemetry-collector-contrib:0.161.0
+#
+# Tails log files, parses JSON lines and plain-text severities, keeps read offsets on
+# disk (no duplicates/gaps after restarts) and ships to Loki >= 3.0 over OTLP/HTTP.
+# The old `loki` exporter was removed from contrib - OTLP is the supported path.
+#
+# Optional env (defaults shown):
+#   LOKI_OTLP_ENDPOINT=http://loki:3100/otlp   (/v1/logs is appended automatically)
+#   LOKI_TENANT_ID=anonymous                   sent as X-Scope-OrgID (multi-tenant Loki/GEL)
+#   LOG_INCLUDE_GLOB=/var/log/app/*.log
+#   LOG_START_AT=end                           use `beginning` only for a one-off backfill
+#   LOG_SERVICE_NAME=unknown_service           service.name if the file has none
+#   OTEL_STORAGE_DIR=/var/lib/otelcol/file_storage   must be writable & persistent
+#   OTEL_HEALTH_ADDR=localhost, OTEL_TELEMETRY_ADDR=localhost, OTEL_LOG_LEVEL=info
+
+extensions:
+  health_check:
+    endpoint: ${env:OTEL_HEALTH_ADDR:-localhost}:13133
+  # Stores file offsets so a restart resumes where it left off.
+  file_storage/checkpoints:
+    directory: ${env:OTEL_STORAGE_DIR:-/var/lib/otelcol/file_storage}
+    create_directory: true
+    timeout: 2s
+
+receivers:
+  file_log:
+    include: ["${env:LOG_INCLUDE_GLOB:-/var/log/app/*.log}"]
+    exclude: ["*.gz", "*.zip", "*.tmp"]
+    start_at: ${env:LOG_START_AT:-end}
+    include_file_path: true
+    include_file_name: false
+    max_log_size: 1MiB
+    storage: file_storage/checkpoints
+    operators:
+      # JSON lines go to the JSON parser, everything else to the severity regex.
+      - type: router
+        id: detect_format
+        routes:
+          - output: parse_json
+            expr: 'body matches "^\\s*\\{"'
+        default: parse_plain_severity
+      - type: json_parser
+        id: parse_json
+        severity:
+          parse_from: attributes.level
+          overwrite_text: true
+        output: done
+      - type: regex_parser
+        id: parse_plain_severity
+        regex: '(?i)\b(?P<level>trace|debug|info|warn|warning|error|fatal|critical)\b'
+        on_error: send_quiet
+        severity:
+          parse_from: attributes.level
+          overwrite_text: true
+        output: done
+      - type: noop
+        id: done
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  resource_detection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+    system:
+      hostname_sources: [os]
+  # Loki turns service.name into the `service_name` stream label - make sure it exists.
+  resource/service:
+    attributes:
+      - key: service.name
+        value: ${env:LOG_SERVICE_NAME:-unknown_service}
+        action: insert
+  batch:
+    send_batch_size: 2048
+    send_batch_max_size: 4096
+    timeout: 5s
+
+exporters:
+  otlp_http/loki:
+    endpoint: ${env:LOKI_OTLP_ENDPOINT:-http://loki:3100/otlp}
+    headers:
+      X-Scope-OrgID: ${env:LOKI_TENANT_ID:-anonymous}
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+
+service:
+  extensions: [health_check, file_storage/checkpoints]
+  telemetry:
+    logs:
+      level: ${env:OTEL_LOG_LEVEL:-info}
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: ${env:OTEL_TELEMETRY_ADDR:-localhost}
+                port: 8888
+  pipelines:
+    logs:
+      receivers: [file_log]
+      processors: [memory_limiter, resource_detection, resource/service, batch]
+      exporters: [otlp_http/loki]
