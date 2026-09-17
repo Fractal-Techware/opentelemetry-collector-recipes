@@ -68,6 +68,10 @@ Not using Docker? The configs are plain collector YAML driven by environment var
 - **Loki's removed `loki` exporter.** Loki 3.x ingests native OTLP, so that is the path used here.
 - **Redaction after export.** PII processing runs before `batch` and before every exporter.
 
+## Guides
+
+Step-by-step, tested guides on [https://fractal-techware.github.io/guides/](https://fractal-techware.github.io/guides/): [tail sampling](https://fractal-techware.github.io/guides/otel-collector-tail-sampling/), [PII redaction with OTTL](https://fractal-techware.github.io/guides/otel-collector-redact-pii-ottl/), [logs to Loki via OTLP](https://fractal-techware.github.io/guides/otel-collector-logs-to-loki-otlp/), [production agent](https://fractal-techware.github.io/guides/otel-collector-production-agent/), [reducing telemetry cost](https://fractal-techware.github.io/guides/otel-collector-reduce-telemetry-cost/) and [span metrics & service graph](https://fractal-techware.github.io/guides/otel-collector-span-metrics-service-graph/).
+
 ## Want all 16 recipes?
 
 This repo is a free sample of the **OpenTelemetry Collector Production Recipes** pack. The paid
