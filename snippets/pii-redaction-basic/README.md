@@ -3,7 +3,7 @@
 > **Basic version.** This is a small, readable starting point for masking personal data and
 > credentials with the `transform` processor. It is not a compliance control. The hardened,
 > end-to-end-tested version is recipe **08 - PII & secret redaction** in the
-> [full pack (Pro and Studio)](https://fractaltechware.gumroad.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo).
+> [full pack (Pro and Studio)](https://store.fractaltechware.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo).
 
 Masks emails and payment-card-like numbers and deletes credential headers in **traces and logs**
 before anything leaves the collector.

@@ -8,7 +8,7 @@ A small, safe-by-default OpenTelemetry Collector agent that accepts OTLP traces,
 - You want one hop that batches and compresses before data leaves the host.
 - You want a known-good baseline to extend with the other recipes.
 
-Not for: tail sampling, load balancing or persistent queuing (covered by recipes 06, 07 and 14 in the [full pack](https://fractaltechware.gumroad.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo)).
+Not for: tail sampling, load balancing or persistent queuing (covered by recipes 06, 07 and 14 in the [full pack](https://store.fractaltechware.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo)).
 
 ## How it works
 
@@ -85,7 +85,7 @@ Run the binary / other platforms: `OTLP_EXPORT_ENDPOINT=gateway:4317 otelcol-con
 
 ## What the automated test proves
 
-These behavioural tests run in the end-to-end suite of the [full pack](https://fractaltechware.gumroad.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo) against this exact config. This free repo's CI runs `otelcol-contrib validate` on every config.
+These behavioural tests run in the end-to-end suite of the [full pack](https://store.fractaltechware.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo) against this exact config. This free repo's CI runs `otelcol-contrib validate` on every config.
 
 - A trace, a log record and a metric sent over OTLP/HTTP all reach the export destination, and the sent trace ID arrives intact.
 - `resource_detection` adds `host.name`, and `override: false` keeps the SDK-set `service.name` (`checkout`).

@@ -91,7 +91,7 @@ Run the binary / other platforms: `LOKI_OTLP_ENDPOINT=http://loki:3100/otlp LOG_
 
 ## What the automated test proves
 
-These behavioural tests run in the end-to-end suite of the [full pack](https://fractaltechware.gumroad.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo) against this exact config. This free repo's CI runs `otelcol-contrib validate` on every config.
+These behavioural tests run in the end-to-end suite of the [full pack](https://store.fractaltechware.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo) against this exact config. This free repo's CI runs `otelcol-contrib validate` on every config.
 
 - A file with a JSON line, a plain-text `WARN` line and a line without a level is tailed from the beginning; all 3 records arrive.
 - The JSON line gets `severityText=ERROR` and `severityNumber=17`, and its field `order_id` becomes an attribute.

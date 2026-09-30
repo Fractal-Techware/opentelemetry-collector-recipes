@@ -13,7 +13,7 @@ file logs to Grafana Loki over OTLP, and basic PII redaction with OTTL. Every co
 names (no deprecation warnings), keeps secrets out of YAML, and ships with a hardened Docker
 Compose file (non-root, read-only root filesystem, no capabilities, ports on `127.0.0.1` only).
 
-Maintained by [Fractal Techware](https://fractaltechware.gumroad.com/?utm_source=github&utm_medium=readme&utm_campaign=free-repo).
+Maintained by [Fractal Techware](https://store.fractaltechware.com/?utm_source=github&utm_medium=readme&utm_campaign=free-repo).
 MIT licensed: use it at work, fork it, ship it.
 
 ## Recipes
@@ -95,7 +95,7 @@ backend outage *and* a restart, mTLS rejects a certificate from the wrong CA.
 | Sizing & tuning guide, client-use license | - | - | - | Yes |
 | Recipes | 2 + snippet | 5 | 16 | 16 |
 
-[**See the full pack on Gumroad**](https://fractaltechware.gumroad.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo)
+[**See the full pack on Gumroad**](https://store.fractaltechware.com/l/otel-collector-recipes?utm_source=github&utm_medium=readme&utm_campaign=free-repo)
 
 ## Compatibility
 
