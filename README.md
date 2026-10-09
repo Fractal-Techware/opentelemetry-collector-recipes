@@ -79,9 +79,9 @@ tiers run every recipe hardened in Docker and assert on what actually comes out:
 errors and slow traces, load balancing never splits a trace, the persistent queue survives a
 backend outage *and* a restart, mTLS rejects a certificate from the wrong CA.
 
-| | Free (this repo) | Starter | Pro | Studio |
+| | Free (this repo) | Starter | Pro | Agency |
 |---|:-:|:-:|:-:|:-:|
-| Price | $0 | $19 | $49 | $99 |
+| Price | $0 | $19 | $49 | $299 |
 | Production agent, logs to Loki | Yes | Yes | Yes | Yes |
 | Host metrics to Prometheus, traces to Tempo/Jaeger, Prometheus scrape to OTLP | - | Yes | Yes | Yes |
 | 5-minute Docker Compose quickstart (telemetrygen, agent, backend) | - | Yes | Yes | Yes |
